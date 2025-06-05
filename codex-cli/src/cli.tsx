@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import "dotenv/config";
+import { config as loadDotenv } from "dotenv";
 
 // Exit early if on an older version of Node.js (< 22)
 const major = process.versions.node.split(".").map(Number)[0]!;
@@ -84,6 +84,7 @@ const cli = meow(
     --free                          Retry redeeming free credits
     -q, --quiet                     Non-interactive mode that only prints the assistant's final output
     -c, --config                    Open the instructions file in your editor
+    -e, --env-file <path>           Specify a custom .env file to load
     -w, --writable-root <path>      Writable folder for sandbox in full-auto mode (can be specified multiple times)
     -a, --approval-mode <mode>      Override the approval policy: 'suggest', 'auto-edit', or 'full-auto'
 
@@ -141,6 +142,10 @@ const cli = meow(
         type: "boolean",
         aliases: ["c"],
         description: "Open the instructions file in your editor",
+      },
+      envFile: {
+        type: "string",
+        description: "Specify a custom .env file to load",
       },
       dangerouslyAutoApproveEverything: {
         type: "boolean",
@@ -272,6 +277,13 @@ if (cli.flags.config) {
     process.env["EDITOR"] || (process.platform === "win32" ? "notepad" : "vi");
   spawnSync(editor, [filePath], { stdio: "inherit" });
   process.exit(0);
+}
+
+// Load custom .env file if specified, or fallback to default .env
+if (cli.flags.envFile) {
+  loadDotenv({ path: cli.flags.envFile });
+} else {
+  loadDotenv();
 }
 
 // ---------------------------------------------------------------------------
