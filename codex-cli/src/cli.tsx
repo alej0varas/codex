@@ -36,6 +36,9 @@ import {
   loadConfig,
   PRETTY_PRINT,
   INSTRUCTIONS_FILEPATH,
+  CONFIG_FILEPATH,
+  CONFIG_YAML_FILEPATH,
+  CONFIG_YML_FILEPATH,
 } from "./utils/config";
 import {
   getApiKey as fetchApiKey,
@@ -50,6 +53,7 @@ import { onExit, setInkRenderer } from "./utils/terminal";
 import chalk from "chalk";
 import { spawnSync } from "child_process";
 import fs from "fs";
+import { getEnvInfo } from "./utils/env-info";
 import { render } from "ink";
 import meow from "meow";
 import os from "os";
@@ -70,6 +74,7 @@ const cli = meow(
   Usage
     $ codex [options] <prompt>
     $ codex completion <bash|zsh|fish>
+    $ codex env                     Show environment/config
 
   Options
     --version                       Print version and exit
@@ -297,6 +302,24 @@ let config = loadConfig(undefined, undefined, {
   projectDocPath: cli.flags.projectDoc,
   isFullContext: fullContextMode,
 });
+// Handle 'env' subcommand to show config and environment info
+if (cli.input[0] === "env") {
+  const info = getEnvInfo(config);
+
+  console.log("Environment:");
+  console.log(`  OPENAI_API_KEY: ${info.displayKey}`);
+  console.log(`    source: ${info.keySource}`);
+  console.log("");
+  console.log("Configuration:");
+  console.log(`  model: ${info.model}`);
+  console.log(`  provider: ${info.provider}`);
+  console.log(`  flexMode: ${info.flexMode ? "true" : "false"}`);
+  console.log(`  notify: ${info.notify ? "true" : "false"}`);
+  console.log(`  disableResponseStorage: ${info.disableResponseStorage ? "true" : "false"}`);
+  console.log("");
+  console.log(`Config file: ${info.usedConfigPath}`);
+  process.exit(0);
+}
 
 // `prompt` can be updated later when the user resumes a previous session
 // via the `--history` flag. Therefore it must be declared with `let` rather
@@ -311,7 +334,7 @@ const client = {
   client_id: "app_EMoamEEZ73f0CkXaXp7hrann",
 };
 
-let apiKey = "";
+let apiKey = config.apiKey ?? "";
 let savedTokens:
   | {
       id_token?: string;
@@ -437,7 +460,7 @@ config = {
   apiKey,
   ...config,
   model: model ?? config.model,
-  notify: Boolean(cli.flags.notify),
+  notify: Boolean(cli.flags.notify) || config.notify,
   reasoningEffort:
     (cli.flags.reasoning as ReasoningEffort | undefined) ?? "medium",
   flexMode: cli.flags.flexMode || (config.flexMode ?? false),

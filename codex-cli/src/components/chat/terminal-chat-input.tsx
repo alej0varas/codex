@@ -11,6 +11,7 @@ import MultilineTextEditor from "./multiline-editor";
 import { TerminalChatCommandReview } from "./terminal-chat-command-review.js";
 import TextCompletions from "./terminal-chat-completions.js";
 import { loadConfig } from "../../utils/config.js";
+import { getEnvInfo } from "../../utils/env-info.js";
 import { getFileSystemSuggestions } from "../../utils/file-system-suggestions.js";
 import { expandFileTags } from "../../utils/file-tag-utils";
 import { createInputItem } from "../../utils/input-utils.js";
@@ -474,6 +475,42 @@ export default function TerminalChatInput({
       // If the user only entered a slash, do not send a chat message.
       if (inputValue === "/") {
         setInput("");
+        return;
+      }
+      // Slash command: show environment/config info
+      if (inputValue === "/env") {
+        setInput("");
+        const cfg = loadConfig();
+        const {
+          displayKey,
+          keySource,
+          model,
+          provider,
+          flexMode,
+          notify,
+          disableResponseStorage,
+          usedConfigPath,
+        } = getEnvInfo(cfg);
+        const info = [
+          `OPENAI_API_KEY: ${displayKey}`,
+          `source: ${keySource}`,
+          `model: ${model}`,
+          `provider: ${provider}`,
+          `flexMode: ${flexMode ? "true" : "false"}`,
+          `notify: ${notify}`,
+          `disableResponseStorage: ${disableResponseStorage ? "true" : "false"}`,
+          `config file: ${usedConfigPath}`,
+        ].join("\n");
+        // Emit as system message
+        setItems(prev => [
+          ...prev,
+          {
+            id: `env-${Date.now()}`,
+            type: "message",
+            role: "system",
+            content: [{ type: "input_text", text: info }],
+          },
+        ]);
         return;
       }
 

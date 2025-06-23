@@ -163,6 +163,7 @@ export type StoredConfig = {
   };
   /** User-defined safe commands */
   safeCommands?: Array<string>;
+  apiKey?: string;
   reasoningEffort?: ReasoningEffort;
 
   /**
@@ -419,6 +420,7 @@ export const loadConfig = (
       : undefined;
 
   const config: AppConfig = {
+    apiKey: storedConfig.apiKey,
     model:
       storedModel ??
       (options.isFullContext
