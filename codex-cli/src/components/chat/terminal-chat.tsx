@@ -38,9 +38,42 @@ import SessionsOverlay from "../sessions-overlay.js";
 import chalk from "chalk";
 import fs from "fs/promises";
 import { Box, Text } from "ink";
-import { spawn } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { inspect } from "util";
+
+// Determine platform
+const isMac = process.platform === "darwin";
+const isLinux = process.platform === "linux";
+
+// Desktop notifications
+let sendDesktopNotification: (title: string, message: string, subtitle?: string) => void = () => {};
+if (isMac) {
+  sendDesktopNotification = (title, message, subtitle = "") => {
+    const safeMessage = message.replace(/"/g, '\\"');
+    const safeSubtitle = subtitle.replace(/"/g, '\\"');
+    spawn("osascript", [
+      "-e",
+      `display notification "${safeMessage}" with title "${title}" subtitle "${safeSubtitle}" sound name "Ping"`,
+    ]);
+  };
+} else if (isLinux) {
+  try {
+    const res = spawnSync("which", ["notify-send"]);
+    if (res.status === 0) {
+      sendDesktopNotification = (title, message) => {
+        const child = spawn("notify-send", [title, message]);
+        child.on("error", (err: any) => {
+          log(`Error sending desktop notification: ${err.message}`);
+        });
+      };
+    } else {
+      log("notify-send not found; desktop notifications disabled");
+    }
+  } catch {
+    log("Error probing notify-send; desktop notifications disabled");
+  }
+}
 
 export type OverlayModeType =
   | "none"
@@ -360,31 +393,17 @@ export default function TerminalChat({
       confirmationPrompt == null &&
       items.length > 0
     ) {
-      if (process.platform === "darwin") {
-        // find the last assistant message
-        const assistantMessages = items.filter(
-          (i) => i.type === "message" && i.role === "assistant",
-        );
-        const last = assistantMessages[assistantMessages.length - 1];
-        if (last) {
-          const text = last.content
-            .map((c) => {
-              if (c.type === "output_text") {
-                return c.text;
-              }
-              return "";
-            })
-            .join("")
-            .trim();
-          const preview = text.replace(/\n/g, " ").slice(0, 100);
-          const safePreview = preview.replace(/"/g, '\\"');
-          const title = "Codex CLI";
-          const cwd = PWD;
-          spawn("osascript", [
-            "-e",
-            `display notification "${safePreview}" with title "${title}" subtitle "${cwd}" sound name "Ping"`,
-          ]);
-        }
+      const assistantMessages = items.filter(
+        (i) => i.type === "message" && i.role === "assistant"
+      );
+      const last = assistantMessages[assistantMessages.length - 1];
+      if (last) {
+        const text = last.content
+          .map((c) => (c.type === "output_text" ? c.text : ""))
+          .join("")
+          .trim();
+        const preview = text.replace(/\n/g, " ").slice(0, 100);
+        sendDesktopNotification("Codex CLI", preview, PWD);
       }
     }
     prevLoadingRef.current = loading;
