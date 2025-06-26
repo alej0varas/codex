@@ -409,6 +409,22 @@ export default function TerminalChat({
     prevLoadingRef.current = loading;
   }, [notify, loading, confirmationPrompt, items, PWD]);
 
+  // Notify desktop when user input (confirmation) is required
+  const prevConfirmationRef = useRef<boolean>(false);
+  useEffect(() => {
+    // Only notify when notifications are enabled.
+    if (!notify) {
+      prevConfirmationRef.current = confirmationPrompt != null;
+      return;
+    }
+
+    // When confirmationPrompt appears (transition from null to non-null), notify user
+    if (!prevConfirmationRef.current && confirmationPrompt != null) {
+      sendDesktopNotification("Codex CLI", "Confirmation required", PWD);
+    }
+    prevConfirmationRef.current = confirmationPrompt != null;
+  }, [notify, confirmationPrompt, PWD]);
+
   // Let's also track whenever the ref becomes available.
   const agent = agentRef.current;
   useEffect(() => {
