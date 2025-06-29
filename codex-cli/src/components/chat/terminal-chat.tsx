@@ -26,7 +26,7 @@ import {
   uniqueById,
 } from "../../utils/model-utils.js";
 import { createOpenAIClient } from "../../utils/openai-client.js";
-import { shortCwd } from "../../utils/short-path.js";
+import { shortCwd, getNotificationName } from "../../utils/short-path.js";
 import { saveRollout } from "../../utils/storage/save-rollout.js";
 import { CLI_VERSION } from "../../version.js";
 import ApprovalModeOverlay from "../approval-mode-overlay.js";
@@ -49,20 +49,22 @@ const isLinux = process.platform === "linux";
 // Desktop notifications
 let sendDesktopNotification: (title: string, message: string, subtitle?: string) => void = () => {};
 if (isMac) {
-  sendDesktopNotification = (title, message, subtitle = "") => {
+  sendDesktopNotification = (_title, message, subtitle = "") => {
     const safeMessage = message.replace(/"/g, '\\"');
-    const safeSubtitle = subtitle.replace(/"/g, '\\"');
+    const combinedTitle = subtitle ? `Codex – ${subtitle}` : "Codex";
+    const safeTitle = combinedTitle.replace(/"/g, '\\"');
     spawn("osascript", [
       "-e",
-      `display notification "${safeMessage}" with title "${title}" subtitle "${safeSubtitle}" sound name "Ping"`,
+      `display notification "${safeMessage}" with title "${safeTitle}" sound name "Ping"`,
     ]);
   };
 } else if (isLinux) {
   try {
     const res = spawnSync("which", ["notify-send"]);
     if (res.status === 0) {
-      sendDesktopNotification = (title, message) => {
-        const child = spawn("notify-send", [title, message]);
+      sendDesktopNotification = (_title, message, subtitle = "") => {
+        const combinedTitle = subtitle ? `Codex – ${subtitle}` : "Codex";
+        const child = spawn("notify-send", [combinedTitle, message]);
         child.on("error", (err: any) => {
           log(`Error sending desktop notification: ${err.message}`);
         });
@@ -428,7 +430,11 @@ export default function TerminalChat({
           .join("")
           .trim();
         const preview = text.replace(/\n/g, " ").slice(0, 100);
-        triggerNotification("Codex CLI", preview, PWD);
+        triggerNotification(
+          "Codex CLI",
+          preview,
+          getNotificationName(),
+        );
       }
     }
     prevLoadingRef.current = loading;
@@ -445,7 +451,11 @@ export default function TerminalChat({
 
     // When confirmationPrompt appears (transition from null to non-null), notify user
     if (!prevConfirmationRef.current && confirmationPrompt != null) {
-      triggerNotification("Codex CLI", "Confirmation required", PWD);
+      triggerNotification(
+        "Codex CLI",
+        "Confirmation required",
+        getNotificationName(),
+      );
     }
     prevConfirmationRef.current = confirmationPrompt != null;
   }, [notify, confirmationPrompt, PWD]);
