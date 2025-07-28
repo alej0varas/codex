@@ -53,7 +53,7 @@ import { onExit, setInkRenderer } from "./utils/terminal";
 import chalk from "chalk";
 import { spawnSync } from "child_process";
 import fs from "fs";
-import { getEnvInfo } from "./utils/env-info";
+import { getEnvInfo, formatEnvInfo } from "./utils/env-info";
 import { render } from "ink";
 import meow from "meow";
 import os from "os";
@@ -306,18 +306,11 @@ let config = loadConfig(undefined, undefined, {
 if (cli.input[0] === "env") {
   const info = getEnvInfo(config);
 
-  console.log("Environment:");
-  console.log(`  OPENAI_API_KEY: ${info.displayKey}`);
-  console.log(`    source: ${info.keySource}`);
-  console.log("");
-  console.log("Configuration:");
-  console.log(`  model: ${info.model}`);
-  console.log(`  provider: ${info.provider}`);
-  console.log(`  flexMode: ${info.flexMode ? "true" : "false"}`);
-  console.log(`  notify: ${info.notify ? "true" : "false"}`);
-  console.log(`  disableResponseStorage: ${info.disableResponseStorage ? "true" : "false"}`);
-  console.log("");
-  console.log(`Config file: ${info.usedConfigPath}`);
+  // Print grouped environment/config information
+  const lines = formatEnvInfo(info);
+  for (const line of lines) {
+    console.log(line);
+  }
   process.exit(0);
 }
 

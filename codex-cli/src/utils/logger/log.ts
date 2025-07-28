@@ -2,6 +2,7 @@ import * as fsSync from "fs";
 import * as fs from "fs/promises";
 import * as os from "os";
 import * as path from "path";
+import { loadConfig } from "../config.js";
 
 interface Logger {
   /** Checking this can be used to avoid constructing a large log message. */
@@ -80,7 +81,20 @@ let logger: Logger;
 export function initLogger(): Logger {
   if (logger) {
     return logger;
-  } else if (!process.env["DEBUG"]) {
+  }
+  // Determine debug mode: config.json takes precedence over environment
+  let debugMode: boolean;
+  try {
+    const cfg = loadConfig();
+    if (cfg.debug !== undefined) {
+      debugMode = cfg.debug;
+    } else {
+      debugMode = Boolean(process.env["DEBUG"]);
+    }
+  } catch {
+    debugMode = Boolean(process.env["DEBUG"]);
+  }
+  if (!debugMode) {
     logger = new EmptyLogger();
     return logger;
   }

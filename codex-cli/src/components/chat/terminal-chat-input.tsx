@@ -11,7 +11,7 @@ import MultilineTextEditor from "./multiline-editor";
 import { TerminalChatCommandReview } from "./terminal-chat-command-review.js";
 import TextCompletions from "./terminal-chat-completions.js";
 import { loadConfig } from "../../utils/config.js";
-import { getEnvInfo } from "../../utils/env-info.js";
+import { getEnvInfo, formatEnvInfo } from "../../utils/env-info.js";
 import { getFileSystemSuggestions } from "../../utils/file-system-suggestions.js";
 import { expandFileTags } from "../../utils/file-tag-utils";
 import { createInputItem } from "../../utils/input-utils.js";
@@ -481,26 +481,9 @@ export default function TerminalChatInput({
       if (inputValue === "/env") {
         setInput("");
         const cfg = loadConfig();
-        const {
-          displayKey,
-          keySource,
-          model,
-          provider,
-          flexMode,
-          notify,
-          disableResponseStorage,
-          usedConfigPath,
-        } = getEnvInfo(cfg);
-        const info = [
-          `OPENAI_API_KEY: ${displayKey}`,
-          `source: ${keySource}`,
-          `model: ${model}`,
-          `provider: ${provider}`,
-          `flexMode: ${flexMode ? "true" : "false"}`,
-          `notify: ${notify}`,
-          `disableResponseStorage: ${disableResponseStorage ? "true" : "false"}`,
-          `config file: ${usedConfigPath}`,
-        ].join("\n");
+        const info = getEnvInfo(cfg);
+        const lines = formatEnvInfo(info);
+        const text = lines.join("\n");
         // Emit as system message
         setItems(prev => [
           ...prev,
@@ -508,7 +491,7 @@ export default function TerminalChatInput({
             id: `env-${Date.now()}`,
             type: "message",
             role: "system",
-            content: [{ type: "input_text", text: info }],
+            content: [{ type: "input_text", text }],
           },
         ]);
         return;
