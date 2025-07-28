@@ -29,6 +29,10 @@ export const SLASH_COMMANDS: Array<SlashCommand> = [
     description: "Generate a prefilled GitHub issue URL with session log",
   },
   {
+    command: "/env",
+    description: "Show environment and configuration details",
+  },
+  {
     command: "/diff",
     description:
       "Show git diff of the working directory (or applied patches if not in git)",
