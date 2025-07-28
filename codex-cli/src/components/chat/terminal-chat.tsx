@@ -75,6 +75,27 @@ if (isMac) {
   }
 }
 
+// Sound notifications
+let playSoundNotification: () => void = () => {};
+if (isLinux) {
+  try {
+    const res = spawnSync("which", ["paplay"]);
+    if (res.status === 0) {
+      const soundFile = "/usr/share/sounds/freedesktop/stereo/message.oga";
+      playSoundNotification = () => {
+        const child = spawn("paplay", [soundFile]);
+        child.on("error", (err: any) => {
+          log(`Error playing sound notification: ${err.message}`);
+        });
+      };
+    } else {
+      log("paplay not found; sound notifications disabled");
+    }
+  } catch {
+    log("Error probing paplay; sound notifications disabled");
+  }
+}
+
 export type OverlayModeType =
   | "none"
   | "history"
@@ -178,6 +199,10 @@ export default function TerminalChat({
   fullStdout,
 }: Props): React.ReactElement {
   const notify = Boolean(config.notify);
+  const triggerNotification = (title: string, message: string, subtitle?: string) => {
+    sendDesktopNotification(title, message, subtitle);
+    playSoundNotification();
+  };
   const [model, setModel] = useState<string>(config.model);
   const [provider, setProvider] = useState<string>(config.provider || "openai");
   const [lastResponseId, setLastResponseId] = useState<string | null>(null);
@@ -403,7 +428,7 @@ export default function TerminalChat({
           .join("")
           .trim();
         const preview = text.replace(/\n/g, " ").slice(0, 100);
-        sendDesktopNotification("Codex CLI", preview, PWD);
+        triggerNotification("Codex CLI", preview, PWD);
       }
     }
     prevLoadingRef.current = loading;
@@ -420,7 +445,7 @@ export default function TerminalChat({
 
     // When confirmationPrompt appears (transition from null to non-null), notify user
     if (!prevConfirmationRef.current && confirmationPrompt != null) {
-      sendDesktopNotification("Codex CLI", "Confirmation required", PWD);
+      triggerNotification("Codex CLI", "Confirmation required", PWD);
     }
     prevConfirmationRef.current = confirmationPrompt != null;
   }, [notify, confirmationPrompt, PWD]);
