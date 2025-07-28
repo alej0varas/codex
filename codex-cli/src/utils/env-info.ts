@@ -69,8 +69,8 @@ export function getEnvInfo(cfg: AppConfig): EnvInfo {
   if (cfg.apiKey) {
     keyValue = cfg.apiKey;
     keySource = `config (${usedConfigPath})`;
-  } else if (process.env.OPENAI_API_KEY) {
-    keyValue = process.env.OPENAI_API_KEY;
+  } else if (process.env["OPENAI_API_KEY"]) {
+    keyValue = process.env["OPENAI_API_KEY"];
     keySource = "environment";
   }
   const displayKey = keyValue
@@ -175,10 +175,10 @@ export function getEnvInfo(cfg: AppConfig): EnvInfo {
   );
 
   // Debug
-  const debugVal = cfg.debug !== undefined ? cfg.debug : Boolean(process.env.DEBUG);
+  const debugVal = cfg.debug !== undefined ? cfg.debug : Boolean(process.env["DEBUG"]);
   const debugSrc = cfg.debug !== undefined
     ? `config (${usedConfigPath})`
-    : process.env.DEBUG
+    : process.env["DEBUG"]
       ? "environment"
       : "default";
   push("debug", String(debugVal), debugSrc);

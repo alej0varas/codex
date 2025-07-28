@@ -182,6 +182,7 @@ export type StoredConfig = {
 // Minimal config written on first run.  An *empty* model string ensures that
 // we always fall back to DEFAULT_MODEL on load, so updates to the default keep
 // propagating to existing users until they explicitly set a model.
+// Default stored config: include explicit debug flag so that config.json always takes precedence
 export const EMPTY_STORED_CONFIG: StoredConfig = { model: "" };
 
 // Pre‑stringified JSON variant so we don't stringify repeatedly.
@@ -546,13 +547,19 @@ export const loadConfig = (
     };
   }
 
-  // Merge default providers with user configured providers in the config.
+  // Merge default providers with user configured providers
   config.providers = { ...providers, ...storedConfig.providers };
-  // Apply debug setting from config.json if explicitly set
+  // Apply debug setting if explicitly provided
   if (storedConfig.debug !== undefined) {
     config.debug = storedConfig.debug;
   }
 
+  // Sync DEBUG env var with config.debug (config.json overrides .env)
+  if (config.debug) {
+    process.env["DEBUG"] = "1";
+  } else {
+    delete process.env["DEBUG"];
+  }
   return config;
 };
 

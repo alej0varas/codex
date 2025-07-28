@@ -36,9 +36,6 @@ import {
   loadConfig,
   PRETTY_PRINT,
   INSTRUCTIONS_FILEPATH,
-  CONFIG_FILEPATH,
-  CONFIG_YAML_FILEPATH,
-  CONFIG_YML_FILEPATH,
 } from "./utils/config";
 import {
   getApiKey as fetchApiKey,
@@ -624,7 +621,7 @@ const approvalPolicy: ApprovalPolicy =
       ? AutoApprovalMode.AUTO_EDIT
       : config.approvalMode || AutoApprovalMode.SUGGEST;
 
-const instance = render(
+  const instance = render(
   <App
     prompt={prompt}
     config={config}
@@ -633,7 +630,7 @@ const instance = render(
     approvalPolicy={approvalPolicy}
     additionalWritableRoots={additionalWritableRoots}
     fullStdout={Boolean(cli.flags.fullStdout)}
-  />,
+    />,
   {
     patchConsole: process.env["DEBUG"] ? false : true,
   },
