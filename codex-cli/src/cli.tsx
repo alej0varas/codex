@@ -36,6 +36,7 @@ import {
   loadConfig,
   PRETTY_PRINT,
   INSTRUCTIONS_FILEPATH,
+  getInstructionsMessage,
 } from "./utils/config";
 import {
   getApiKey as fetchApiKey,
@@ -308,6 +309,11 @@ if (cli.input[0] === "env") {
   for (const line of lines) {
     console.log(line);
   }
+  process.exit(0);
+}
+// Handle 'inst' subcommand to show combined instructions (user + project-level)
+if (cli.input[0] === "inst") {
+  console.log(getInstructionsMessage(config));
   process.exit(0);
 }
 

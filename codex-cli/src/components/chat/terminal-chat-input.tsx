@@ -10,7 +10,7 @@ import type {
 import MultilineTextEditor from "./multiline-editor";
 import { TerminalChatCommandReview } from "./terminal-chat-command-review.js";
 import TextCompletions from "./terminal-chat-completions.js";
-import { loadConfig } from "../../utils/config.js";
+import { loadConfig, getInstructionsMessage } from "../../utils/config.js";
 import { getEnvInfo, formatEnvInfo } from "../../utils/env-info.js";
 import { getFileSystemSuggestions } from "../../utils/file-system-suggestions.js";
 import { expandFileTags } from "../../utils/file-tag-utils";
@@ -484,16 +484,15 @@ export default function TerminalChatInput({
         const info = getEnvInfo(cfg);
         const lines = formatEnvInfo(info);
         const text = lines.join("\n");
-        // Emit as system message
-        setItems(prev => [
-          ...prev,
-          {
-            id: `env-${Date.now()}`,
-            type: "message",
-            role: "system",
-            content: [{ type: "input_text", text }],
-          },
-        ]);
+        console.log(text);
+        return;
+      }
+      // Slash command: show combined instructions (user + project-level)
+      if (inputValue === "/inst") {
+        setInput("");
+        const cfg = loadConfig(undefined, undefined, { cwd: process.cwd() });
+        const text = getInstructionsMessage(cfg);
+        console.log(text);
         return;
       }
 

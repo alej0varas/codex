@@ -227,6 +227,15 @@ export type AppConfig = {
   debug?: boolean;
 };
 
+/**
+ * Returns the instructions
+ */
+export function getInstructionsMessage(config: AppConfig): string {
+  return config.instructions && config.instructions.trim() !== ""
+    ? config.instructions
+    : "No instructions found (user or project).";
+}
+
 // Formatting (quiet mode-only).
 export const PRETTY_PRINT = Boolean(process.env["PRETTY_PRINT"] || "");
 
