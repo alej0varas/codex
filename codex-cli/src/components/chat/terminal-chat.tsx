@@ -26,7 +26,7 @@ import {
   uniqueById,
 } from "../../utils/model-utils.js";
 import { createOpenAIClient } from "../../utils/openai-client.js";
-import { shortCwd } from "../../utils/short-path.js";
+import { shortCwd, getNotificationName } from "../../utils/short-path.js";
 import { saveRollout } from "../../utils/storage/save-rollout.js";
 import { CLI_VERSION } from "../../version.js";
 import ApprovalModeOverlay from "../approval-mode-overlay.js";
@@ -38,9 +38,65 @@ import SessionsOverlay from "../sessions-overlay.js";
 import chalk from "chalk";
 import fs from "fs/promises";
 import { Box, Text } from "ink";
-import { spawn } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { inspect } from "util";
+
+// Determine platform
+const isMac = process.platform === "darwin";
+const isLinux = process.platform === "linux";
+
+// Desktop notifications
+let sendDesktopNotification: (title: string, message: string, subtitle?: string) => void = () => {};
+if (isMac) {
+  sendDesktopNotification = (_title, message, subtitle = "") => {
+    const safeMessage = message.replace(/"/g, '\\"');
+    const combinedTitle = subtitle ? `Codex – ${subtitle}` : "Codex";
+    const safeTitle = combinedTitle.replace(/"/g, '\\"');
+    spawn("osascript", [
+      "-e",
+      `display notification "${safeMessage}" with title "${safeTitle}" sound name "Ping"`,
+    ]);
+  };
+} else if (isLinux) {
+  try {
+    const res = spawnSync("which", ["notify-send"]);
+    if (res.status === 0) {
+      sendDesktopNotification = (_title, message, subtitle = "") => {
+        const combinedTitle = subtitle ? `Codex – ${subtitle}` : "Codex";
+        const child = spawn("notify-send", [combinedTitle, message]);
+        child.on("error", (err: any) => {
+          log(`Error sending desktop notification: ${err.message}`);
+        });
+      };
+    } else {
+      log("notify-send not found; desktop notifications disabled");
+    }
+  } catch {
+    log("Error probing notify-send; desktop notifications disabled");
+  }
+}
+
+// Sound notifications
+let playSoundNotification: () => void = () => {};
+if (isLinux) {
+  try {
+    const res = spawnSync("which", ["paplay"]);
+    if (res.status === 0) {
+      const soundFile = "/usr/share/sounds/freedesktop/stereo/message.oga";
+      playSoundNotification = () => {
+        const child = spawn("paplay", [soundFile]);
+        child.on("error", (err: any) => {
+          log(`Error playing sound notification: ${err.message}`);
+        });
+      };
+    } else {
+      log("paplay not found; sound notifications disabled");
+    }
+  } catch {
+    log("Error probing paplay; sound notifications disabled");
+  }
+}
 
 export type OverlayModeType =
   | "none"
@@ -145,6 +201,10 @@ export default function TerminalChat({
   fullStdout,
 }: Props): React.ReactElement {
   const notify = Boolean(config.notify);
+  const triggerNotification = (title: string, message: string, subtitle?: string) => {
+    sendDesktopNotification(title, message, subtitle);
+    playSoundNotification();
+  };
   const [model, setModel] = useState<string>(config.model);
   const [provider, setProvider] = useState<string>(config.provider || "openai");
   const [lastResponseId, setLastResponseId] = useState<string | null>(null);
@@ -360,35 +420,45 @@ export default function TerminalChat({
       confirmationPrompt == null &&
       items.length > 0
     ) {
-      if (process.platform === "darwin") {
-        // find the last assistant message
-        const assistantMessages = items.filter(
-          (i) => i.type === "message" && i.role === "assistant",
+      const assistantMessages = items.filter(
+        (i) => i.type === "message" && i.role === "assistant"
+      );
+      const last = assistantMessages[assistantMessages.length - 1];
+      if (last) {
+        const text = last.content
+          .map((c) => (c.type === "output_text" ? c.text : ""))
+          .join("")
+          .trim();
+        const preview = text.replace(/\n/g, " ").slice(0, 100);
+        triggerNotification(
+          "Codex CLI",
+          preview,
+          getNotificationName(),
         );
-        const last = assistantMessages[assistantMessages.length - 1];
-        if (last) {
-          const text = last.content
-            .map((c) => {
-              if (c.type === "output_text") {
-                return c.text;
-              }
-              return "";
-            })
-            .join("")
-            .trim();
-          const preview = text.replace(/\n/g, " ").slice(0, 100);
-          const safePreview = preview.replace(/"/g, '\\"');
-          const title = "Codex CLI";
-          const cwd = PWD;
-          spawn("osascript", [
-            "-e",
-            `display notification "${safePreview}" with title "${title}" subtitle "${cwd}" sound name "Ping"`,
-          ]);
-        }
       }
     }
     prevLoadingRef.current = loading;
   }, [notify, loading, confirmationPrompt, items, PWD]);
+
+  // Notify desktop when user input (confirmation) is required
+  const prevConfirmationRef = useRef<boolean>(false);
+  useEffect(() => {
+    // Only notify when notifications are enabled.
+    if (!notify) {
+      prevConfirmationRef.current = confirmationPrompt != null;
+      return;
+    }
+
+    // When confirmationPrompt appears (transition from null to non-null), notify user
+    if (!prevConfirmationRef.current && confirmationPrompt != null) {
+      triggerNotification(
+        "Codex CLI",
+        "Confirmation required",
+        getNotificationName(),
+      );
+    }
+    prevConfirmationRef.current = confirmationPrompt != null;
+  }, [notify, confirmationPrompt, PWD]);
 
   // Let's also track whenever the ref becomes available.
   const agent = agentRef.current;

@@ -86,31 +86,35 @@ export function setApiKey(apiKey: string): void {
 }
 
 export function getBaseUrl(provider: string = "openai"): string | undefined {
-  // Check for a PROVIDER-specific override: e.g. OPENAI_BASE_URL or OLLAMA_BASE_URL.
+  // 1) Highest precedence: provider config loaded from config.json
+  const config = loadConfig();
+  const providersConfig = config.providers ?? providers;
+  const providerInfo = providersConfig[provider.toLowerCase()];
+  if (providerInfo?.baseURL) {
+    return providerInfo.baseURL;
+  }
+
+  // 2) Next, check for PROVIDER-specific override via environment variable
   const envKey = `${provider.toUpperCase()}_BASE_URL`;
   if (process.env[envKey]) {
     return process.env[envKey];
   }
 
-  // Get providers config from config file.
-  const config = loadConfig();
-  const providersConfig = config.providers ?? providers;
-  const providerInfo = providersConfig[provider.toLowerCase()];
-  if (providerInfo) {
-    return providerInfo.baseURL;
-  }
-
-  // If the provider not found in the providers list and `OPENAI_BASE_URL` is set, use it.
+  // 3) Fallback: global OPENAI_BASE_URL if set
   if (OPENAI_BASE_URL !== "") {
     return OPENAI_BASE_URL;
   }
 
-  // We tried.
+  // No URL found
   return undefined;
 }
 
 export function getApiKey(provider: string = "openai"): string | undefined {
   const config = loadConfig();
+  // 1) Highest precedence: top-level apiKey defined in config.json
+  if (config.apiKey !== undefined) {
+    return config.apiKey;
+  }
   const providersConfig = config.providers ?? providers;
   const providerInfo = providersConfig[provider.toLowerCase()];
   if (providerInfo) {
@@ -163,6 +167,7 @@ export type StoredConfig = {
   };
   /** User-defined safe commands */
   safeCommands?: Array<string>;
+  apiKey?: string;
   reasoningEffort?: ReasoningEffort;
 
   /**
@@ -170,11 +175,14 @@ export type StoredConfig = {
    * terminal output.
    */
   fileOpener?: FileOpenerScheme;
+  /** Enable debug logging (equivalent to DEBUG=1) */
+  debug?: boolean;
 };
 
 // Minimal config written on first run.  An *empty* model string ensures that
 // we always fall back to DEFAULT_MODEL on load, so updates to the default keep
 // propagating to existing users until they explicitly set a model.
+// Default stored config: include explicit debug flag so that config.json always takes precedence
 export const EMPTY_STORED_CONFIG: StoredConfig = { model: "" };
 
 // Pre‑stringified JSON variant so we don't stringify repeatedly.
@@ -215,7 +223,18 @@ export type AppConfig = {
     };
   };
   fileOpener?: FileOpenerScheme;
+  /** Enable debug logging (equivalent to DEBUG=1) */
+  debug?: boolean;
 };
+
+/**
+ * Returns the instructions
+ */
+export function getInstructionsMessage(config: AppConfig): string {
+  return config.instructions && config.instructions.trim() !== ""
+    ? config.instructions
+    : "No instructions found (user or project).";
+}
 
 // Formatting (quiet mode-only).
 export const PRETTY_PRINT = Boolean(process.env["PRETTY_PRINT"] || "");
@@ -378,6 +397,22 @@ export const loadConfig = (
       delete storedConfig.disableResponseStorage;
     }
   }
+  // Normalize debug flag: allow "true"/"false" strings
+  if (
+    storedConfig.debug !== undefined &&
+    typeof storedConfig.debug !== "boolean"
+  ) {
+    if (storedConfig.debug === "true") {
+      storedConfig.debug = true;
+    } else if (storedConfig.debug === "false") {
+      storedConfig.debug = false;
+    } else {
+      log(
+        `[codex] Warning: 'debug' in config is not a boolean (got '${storedConfig.debug}'). Ignoring this value.`,
+      );
+      delete storedConfig.debug;
+    }
+  }
 
   const instructionsFilePathResolved =
     instructionsPath ?? INSTRUCTIONS_FILEPATH;
@@ -419,6 +454,7 @@ export const loadConfig = (
       : undefined;
 
   const config: AppConfig = {
+    apiKey: storedConfig.apiKey,
     model:
       storedModel ??
       (options.isFullContext
@@ -520,9 +556,19 @@ export const loadConfig = (
     };
   }
 
-  // Merge default providers with user configured providers in the config.
+  // Merge default providers with user configured providers
   config.providers = { ...providers, ...storedConfig.providers };
+  // Apply debug setting if explicitly provided
+  if (storedConfig.debug !== undefined) {
+    config.debug = storedConfig.debug;
+  }
 
+  // Sync DEBUG env var with config.debug (config.json overrides .env)
+  if (config.debug) {
+    process.env["DEBUG"] = "1";
+  } else {
+    delete process.env["DEBUG"];
+  }
   return config;
 };
 
@@ -561,6 +607,10 @@ export const saveConfig = (
     flexMode: config.flexMode,
     reasoningEffort: config.reasoningEffort,
   };
+  // Persist debug setting if present
+  if (config.debug !== undefined) {
+    configToSave.debug = config.debug;
+  }
 
   // Add history settings if they exist
   if (config.history) {

@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import "dotenv/config";
+import { config as loadDotenv } from "dotenv";
 
 // Exit early if on an older version of Node.js (< 22)
 const major = process.versions.node.split(".").map(Number)[0]!;
@@ -36,6 +36,7 @@ import {
   loadConfig,
   PRETTY_PRINT,
   INSTRUCTIONS_FILEPATH,
+  getInstructionsMessage,
 } from "./utils/config";
 import {
   getApiKey as fetchApiKey,
@@ -50,6 +51,7 @@ import { onExit, setInkRenderer } from "./utils/terminal";
 import chalk from "chalk";
 import { spawnSync } from "child_process";
 import fs from "fs";
+import { getEnvInfo, formatEnvInfo } from "./utils/env-info";
 import { render } from "ink";
 import meow from "meow";
 import os from "os";
@@ -70,6 +72,7 @@ const cli = meow(
   Usage
     $ codex [options] <prompt>
     $ codex completion <bash|zsh|fish>
+    $ codex env                     Show environment/config
 
   Options
     --version                       Print version and exit
@@ -84,6 +87,7 @@ const cli = meow(
     --free                          Retry redeeming free credits
     -q, --quiet                     Non-interactive mode that only prints the assistant's final output
     -c, --config                    Open the instructions file in your editor
+    -e, --env-file <path>           Specify a custom .env file to load
     -w, --writable-root <path>      Writable folder for sandbox in full-auto mode (can be specified multiple times)
     -a, --approval-mode <mode>      Override the approval policy: 'suggest', 'auto-edit', or 'full-auto'
 
@@ -141,6 +145,10 @@ const cli = meow(
         type: "boolean",
         aliases: ["c"],
         description: "Open the instructions file in your editor",
+      },
+      envFile: {
+        type: "string",
+        description: "Specify a custom .env file to load",
       },
       dangerouslyAutoApproveEverything: {
         type: "boolean",
@@ -274,6 +282,13 @@ if (cli.flags.config) {
   process.exit(0);
 }
 
+// Load custom .env file if specified, or fallback to default .env
+if (cli.flags.envFile) {
+  loadDotenv({ path: cli.flags.envFile });
+} else {
+  loadDotenv();
+}
+
 // ---------------------------------------------------------------------------
 // API key handling
 // ---------------------------------------------------------------------------
@@ -285,6 +300,22 @@ let config = loadConfig(undefined, undefined, {
   projectDocPath: cli.flags.projectDoc,
   isFullContext: fullContextMode,
 });
+// Handle 'env' subcommand to show config and environment info
+if (cli.input[0] === "env") {
+  const info = getEnvInfo(config);
+
+  // Print grouped environment/config information
+  const lines = formatEnvInfo(info);
+  for (const line of lines) {
+    console.log(line);
+  }
+  process.exit(0);
+}
+// Handle 'inst' subcommand to show combined instructions (user + project-level)
+if (cli.input[0] === "inst") {
+  console.log(getInstructionsMessage(config));
+  process.exit(0);
+}
 
 // `prompt` can be updated later when the user resumes a previous session
 // via the `--history` flag. Therefore it must be declared with `let` rather
@@ -299,7 +330,7 @@ const client = {
   client_id: "app_EMoamEEZ73f0CkXaXp7hrann",
 };
 
-let apiKey = "";
+let apiKey = config.apiKey ?? "";
 let savedTokens:
   | {
       id_token?: string;
@@ -425,7 +456,7 @@ config = {
   apiKey,
   ...config,
   model: model ?? config.model,
-  notify: Boolean(cli.flags.notify),
+  notify: Boolean(cli.flags.notify) || config.notify,
   reasoningEffort:
     (cli.flags.reasoning as ReasoningEffort | undefined) ?? "medium",
   flexMode: cli.flags.flexMode || (config.flexMode ?? false),
@@ -596,7 +627,7 @@ const approvalPolicy: ApprovalPolicy =
       ? AutoApprovalMode.AUTO_EDIT
       : config.approvalMode || AutoApprovalMode.SUGGEST;
 
-const instance = render(
+  const instance = render(
   <App
     prompt={prompt}
     config={config}
@@ -605,7 +636,7 @@ const instance = render(
     approvalPolicy={approvalPolicy}
     additionalWritableRoots={additionalWritableRoots}
     fullStdout={Boolean(cli.flags.fullStdout)}
-  />,
+    />,
   {
     patchConsole: process.env["DEBUG"] ? false : true,
   },

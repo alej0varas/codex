@@ -42,11 +42,11 @@ export default function TerminalChatResponseItem({
           fileOpener={fileOpener}
         />
       );
-    // @ts-expect-error new item types aren't in SDK yet
+    
     case "local_shell_call":
     case "function_call":
       return <TerminalChatResponseToolCall message={item} />;
-    // @ts-expect-error new item types aren't in SDK yet
+    
     case "local_shell_call_output":
     case "function_call_output":
       return (
@@ -59,7 +59,7 @@ export default function TerminalChatResponseItem({
       break;
   }
 
-  // @ts-expect-error `reasoning` is not in the responses API yet
+  
   if (item.type === "reasoning") {
     return (
       <TerminalChatResponseReasoning message={item} fileOpener={fileOpener} />
@@ -288,7 +288,7 @@ export function Markdown({
 
     // Configure marked for this specific render
     setOptions({
-      // @ts-expect-error missing parser, space props
+      
       renderer: new TerminalRenderer({ ...options, width: size.columns }),
     });
     const parsed = parse(linkifiedMarkdown, { async: false }).trim();

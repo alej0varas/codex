@@ -343,11 +343,11 @@ Help us improve by filing issues or submitting PRs (see the section below for ho
 
 ## CLI reference
 
-| Command            | Purpose                            | Example                         |
-| ------------------ | ---------------------------------- | ------------------------------- |
-| `codex`            | Interactive TUI                    | `codex`                         |
-| `codex "..."`      | Initial prompt for interactive TUI | `codex "fix lint errors"`       |
-| `codex exec "..."` | Non-interactive "automation mode"  | `codex exec "explain utils.ts"` |
+| Command       | Purpose                             | Example                   |
+|---------------|-------------------------------------|---------------------------|
+| `codex`       | Interactive TUI                     | `codex`                   |
+| `codex "..."` | Initial prompt for interactive TUI  | `codex "fix lint errors"` |
+| `codex env`   | Show environment and config details | `codex env`               |
 
 Key flags: `--model/-m`, `--ask-for-approval/-a`.
 

@@ -10,7 +10,8 @@ import type {
 import MultilineTextEditor from "./multiline-editor";
 import { TerminalChatCommandReview } from "./terminal-chat-command-review.js";
 import TextCompletions from "./terminal-chat-completions.js";
-import { loadConfig } from "../../utils/config.js";
+import { loadConfig, getInstructionsMessage } from "../../utils/config.js";
+import { getEnvInfo, formatEnvInfo } from "../../utils/env-info.js";
 import { getFileSystemSuggestions } from "../../utils/file-system-suggestions.js";
 import { expandFileTags } from "../../utils/file-tag-utils";
 import { createInputItem } from "../../utils/input-utils.js";
@@ -474,6 +475,24 @@ export default function TerminalChatInput({
       // If the user only entered a slash, do not send a chat message.
       if (inputValue === "/") {
         setInput("");
+        return;
+      }
+      // Slash command: show environment/config info
+      if (inputValue === "/env") {
+        setInput("");
+        const cfg = loadConfig();
+        const info = getEnvInfo(cfg);
+        const lines = formatEnvInfo(info);
+        const text = lines.join("\n");
+        console.log(text);
+        return;
+      }
+      // Slash command: show combined instructions (user + project-level)
+      if (inputValue === "/inst") {
+        setInput("");
+        const cfg = loadConfig(undefined, undefined, { cwd: process.cwd() });
+        const text = getInstructionsMessage(cfg);
+        console.log(text);
         return;
       }
 
